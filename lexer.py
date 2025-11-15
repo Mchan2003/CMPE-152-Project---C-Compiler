@@ -49,9 +49,18 @@ class TokenType(Enum):
     LEFTBRKT = auto()
     RIGHTBRKT = auto()
 
+class ProdRule(Enum):
+    EXPRESSION = auto()
+    ARITHMETIC = auto()
+    GROUP = auto()
+    OPERATOR = auto()
+    LITERAL = auto() 
+    EOF = auto()
+
 class Token:
-    def __init__(self, token_type, lexeme):
+    def __init__(self, token_type, prod_rule, lexeme):
         self.token_type = token_type
+        self.prod_rule = prod_rule
         self.lexeme = lexeme
     
     def __str__(self):
@@ -62,79 +71,83 @@ class Lexer:
         self.source = source
         self.tokens = []
         self.current = 0
+        self.line = 1
 
     #scan_token
     def scan_tokens(self):
         while self.current < len(self.source):
             self.scan_token(self.source[self.current])
-        self.add_token(TokenType.EOF, "")
+        self.add_token(TokenType.EOF, ProdRule.EOF, "")
 
     #scan_token
     def scan_token(self, lex):
         match lex :
-            case ';' : self.handle_operator(TokenType.SEMICOLON, lex)
-            case ',' : self.handle_operator(TokenType.COMMA, lex)
-            case ':' : self.handle_operator(TokenType.COLON, lex)
-            case '(' : self.handle_operator(TokenType.LEFTPARAM, lex)
-            case ')' : self.handle_operator(TokenType.RIGHTPARAM, lex)
-            case '{' : self.handle_operator(TokenType.LEFTBRACE, lex)
-            case '}' : self.handle_operator(TokenType.RIGHTBRACE, lex)
-            case '[' : self.handle_operator(TokenType.LEFTBRKT, lex)
-            case ']' : self.handle_operator(TokenType.RIGHTBRKT, lex)
-            case '*' : self.handle_operator(TokenType.STAR, lex)
-            case '^' : self.handle_operator(TokenType.CARROT, lex)
-            case '?' : self.handle_operator(TokenType.QUESTION, lex)
-            case '&' : self.handle_operator(TokenType.AT, lex)
+            case ';' : self.add_token(TokenType.SEMICOLON, ProdRule.OPERATOR, lex)
+            case ',' : self.add_token(TokenType.COMMA, ProdRule.OPERATOR, lex)
+            case ':' : self.add_token(TokenType.COLON, ProdRule.OPERATOR, lex)
+            case '(' : self.add_token(TokenType.LEFTPARAM, ProdRule.OPERATOR, lex)
+            case ')' : self.add_token(TokenType.RIGHTPARAM, ProdRule.OPERATOR, lex)
+            case '{' : self.add_token(TokenType.LEFTBRACE, ProdRule.OPERATOR, lex)
+            case '}' : self.add_token(TokenType.RIGHTBRACE, ProdRule.OPERATOR, lex)
+            case '[' : self.add_token(TokenType.LEFTBRKT, ProdRule.OPERATOR, lex)
+            case ']' : self.add_token(TokenType.RIGHTBRKT, ProdRule.OPERATOR, lex)
+            case '*' : self.add_token(TokenType.STAR, ProdRule.OPERATOR, lex)
+            case '^' : self.add_token(TokenType.CARROT, ProdRule.OPERATOR, lex)
+            case '?' : self.add_token(TokenType.QUESTION, ProdRule.OPERATOR, lex)
+            case '&' : self.add_token(TokenType.AT, ProdRule.OPERATOR, lex)
             case '+' : 
                 if(self.current + 1 < len(self.source) and self.source[self.current + 1] == '+'):
-                    self.handle_operator(TokenType.PLUS_PLUS, "++")
+                    self.add_token(TokenType.PLUS_PLUS, ProdRule.OPERATOR, "++")
                     self.current += 1
                 elif(self.current + 1 < len(self.source) and self.source[self.current + 1] == '='):
-                    self.handle_operator(TokenType.PLUS_EQUAL, "+=")
+                    self.add_token(TokenType.PLUS_EQUAL, ProdRule.OPERATOR, "+=")
                     self.current += 1
                 else:
-                    self.handle_operator(TokenType.PLUS, lex)
+                    self.add_token(TokenType.PLUS, ProdRule.OPERATOR, lex)
             case '-' : 
                 if(self.current + 1 < len(self.source) and self.source[self.current + 1] == '-'):
-                    self.handle_operator(TokenType.MINUS_MINUS, "--")
+                    self.add_token(TokenType.MINUS_MINUS, ProdRule.OPERATOR, "--")
                     self.current += 1
                 else:
-                    self.handle_operator(TokenType.MINUS, lex)
+                    self.add_token(TokenType.MINUS, ProdRule.OPERATOR, lex)
             case '/' : 
                 if(self.current + 1 < len(self.source) and self.source[self.current + 1] == '/'):
-                    self.handle_operator(TokenType.SLASH_SLASH, "//")
+                    self.add_token(TokenType.SLASH_SLASH, ProdRule.OPERATOR, "//")
                     self.current += 1
                     while(self.current < len(self.source) and
                         self.source[self.current] != '\n'):        
                         self.current += 1
                 else:
-                    self.handle_operator(TokenType.SLASH, lex)
+                    self.add_token(TokenType.SLASH, ProdRule.OPERATOR, lex)
             case '>' : 
                 if(self.current + 1 < len(self.source) and self.source[self.current + 1] == '='):
-                    self.handle_operator(TokenType.GREATER_EQUAL, ">=")
+                    self.add_token(TokenType.GREATER_EQUAL, ProdRule.OPERATOR, ">=")
                     self.current += 1
                 elif(self.current + 1 < len(self.source) and self.source[self.current + 1] == '>'):
-                    self.handle_operator(TokenType.SHIFT_RIGHT, ">>")
+                    self.add_token(TokenType.SHIFT_RIGHT, ProdRule.OPERATOR, ">>")
                     self.current += 1
                 else:
-                    self.handle_operator(TokenType.GREATER, lex)
+                    self.add_token(TokenType.GREATER, ProdRule.OPERATOR, lex)
             case '<' : 
                 if(self.current + 1 < len(self.source) and self.source[self.current + 1] == '='):
-                    self.handle_operator(TokenType.LESSER_EQUAL, "<=")
+                    self.add_token(TokenType.LESSER_EQUAL, ProdRule.OPERATOR, "<=")
                     self.current += 1
                 elif(self.current + 1 < len(self.source) and self.source[self.current + 1] == '<'):
-                    self.handle_operator(TokenType.SHIFT_LEFT, "<<")
+                    self.add_token(TokenType.SHIFT_LEFT, ProdRule.OPERATOR, "<<")
                     self.current += 1
                 else:
-                    self.handle_operator(TokenType.LESSER, lex)
+                    self.add_token(TokenType.LESSER, ProdRule.OPERATOR, lex)
             case '=' : 
                 if(self.current + 1 < len(self.source) and self.source[self.current + 1] == '='):
-                    self.handle_operator(TokenType.EQUAL_EQUAL, "==")
+                    self.add_token(TokenType.EQUAL_EQUAL, ProdRule.OPERATOR, "==")
                     self.current += 1
                 else:
-                    self.handle_operator(TokenType.EQUAL, lex)
+                    self.add_token(TokenType.EQUAL, ProdRule.OPERATOR, lex)
             case ' ' : 
                 self.current += 1
+            case '\n' : 
+                self.current += 1
+                self.line += 1
             case _ :
                 if(lex.isdigit()):
                     digit = []
@@ -143,7 +156,7 @@ class Lexer:
                         self.source[self.current + 1].isdigit()):
                         self.current += 1
                         digit.append(self.source[self.current])
-                    self.handle_operator(TokenType.NUMBER, int(''.join(digit)))
+                    self.add_token(TokenType.NUMBER, ProdRule.LITERAL, int(''.join(digit)))
                 elif(lex.isalpha()):
                     alpha = []
                     alpha.append(lex);
@@ -151,18 +164,14 @@ class Lexer:
                         self.source[self.current + 1].isalpha()):
                         self.current += 1
                         alpha.append(self.source[self.current])
-                    self.handle_operator(self.handle_keyword(''.join(alpha)), ''.join(alpha))
+                    self.add_token(self.handle_keyword(''.join(alpha)), ProdRule.LITERAL, ''.join(alpha))
                 else:
                     sys.exit("Invalid Token: {}".format(lex));
 
     #add_token
-    def add_token(self, token_type, lexeme):
-        self.tokens.append(Token(token_type, lexeme))
+    def add_token(self, token_type, prod_rule, lexeme):
+        self.tokens.append(Token(token_type, prod_rule, lexeme))
         self.current += 1;
-
-    #handle operator
-    def handle_operator(self, token_type, lexeme):
-        self.add_token(token_type, lexeme)
 
     #handle identifier
     def handle_keyword(self, lex):
@@ -183,3 +192,11 @@ class Lexer:
     def print_token(self):
         for token in self.tokens:
             print(token)
+
+    #get tokens
+    def get_tokens(self):
+        return self.tokens
+    
+    #get line
+    def get_line(self):
+        return self.line

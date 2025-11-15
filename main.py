@@ -8,14 +8,14 @@ def main():
         command = input(">")
         if(command == "exit"):
             sys.exit(0);
-        lex = Lexer(command);
-        lex.scan_tokens();
-        lex.print_token();
+        # lex = Lexer(command);
+        # lex.scan_tokens();
+        # lex.print_token();
 
-        parse = Parser(lex.tokens)
-        parse.syntax_analysis()
-        parse.sematic_analysis()
-        parse.code_generation()
+        ast = Parser(command)
+        ast.parse()
+        ast.print_ast()
+
 
 if __name__=="__main__":
     main()
