@@ -5,18 +5,31 @@ from typing import Union, Optional
 import sys
 
 @dataclass
+class TreeNode:
+    operand1:str
+    operator: str
+    operand2: str
+
+@dataclass
+class LeafNode:
+    operand:str
+
+    def __str__(self):
+        return f"{self.operand}"
+
+@dataclass
 class Operator:
     operator: Token
 
     def __str__(self):
-        return f"{self.operator}"
+        return f"{self.operator.lexeme}"
 
 @dataclass
 class Literal:
-    literal: Token
+    token: Token
 
     def __str__(self):
-        return f"{self.literal}"
+        return f"{self.token.lexeme}"
     
 
 @dataclass
@@ -57,10 +70,12 @@ S = Union[Literal, Expression]
 class Parser:
     def __init__(self, line):
         self.root: Optional[S] = None
-        self.lex = Lexer(line);
+        self.lex = Lexer(line)
         self.tokens = self.lex.get_tokens()
-        self.current = -1;
-    
+        self.current = -1
+        self.temp_count = 0  # For generating temporary variables
+        self.tac = []  # FIXED: Initialize TAC list
+        
     def parse(self):
         self.lex.scan_tokens()
         # self.lex.print_token()
@@ -71,29 +86,35 @@ class Parser:
             sys.exit(f"Unexpected token on line {self.lex.get_line()}: {next_token.lexeme}")
         
     def parse_exp(self, min_bp):
-        lhs = self.next();
-        # print(f"lhs: {lhs} | current = {self.current}")
+        lhs = self.next()
+        
+        # FIXED: Handle parentheses correctly
         if lhs.token_type == TokenType.LEFTPARAM:
-            self.parse_exp(0.0)
-            assert(self.next() == TokenType.RIGHTPARAM);
-        if lhs.prod_rule != ProdRule.LITERAL:
+            lhs = self.parse_exp(0.0)  # Capture the result
+            right_paren = self.next()
+            if right_paren.token_type != TokenType.RIGHTPARAM:  # Fixed comparison
+                sys.exit(f"Expected ')' on line {self.lex.get_line()}")
+        elif lhs.prod_rule != ProdRule.LITERAL:
             sys.exit(f"Invalid literal on line ({self.lex.get_line()}): {lhs.lexeme}")
+        else:
+            # FIXED: Wrap literal token in Literal node
+            lhs = Literal(lhs)
 
         while True: 
             op = self.peek()
             if op.token_type == TokenType.EOF:
-                break;
+                break
             if op.token_type == TokenType.RIGHTPARAM:
-                break;
+                break
             if op.prod_rule != ProdRule.OPERATOR:
-                sys.exit(f"Invalid operator on line ({self.lex.get_line()}): {lhs.lexeme}")
-            left_bp, right_bp = self.binding_power(op);
+                sys.exit(f"Invalid operator on line ({self.lex.get_line()}): {op.lexeme}")
+            left_bp, right_bp = self.binding_power(op)
             if left_bp < min_bp:
-                break;
+                break
             op = self.next()
-            # print(f"op: {op} | current = {self.current}")
+            # FIXED: Wrap operator token in Operator node
+            op = Operator(op)
             rhs = self.parse_exp(right_bp)
-            # print(f"rhs: {rhs} | current = {self.current}")
             lhs = Expression(lhs, op, rhs)
         return lhs  
       
@@ -121,3 +142,111 @@ class Parser:
     
     def print_ast(self):
         print(self.root)
+
+    # FIXED: Added missing new_temp method
+    def new_temp(self) -> str:
+        tmp = f"t{self.temp_count}"
+        self.temp_count += 1
+        return tmp
+
+    # record a TAC instruction  
+    def gen_tac(self, target: str, arg1: str, op: str, arg2: Optional[str]):
+        self.tac.append((target, arg1, op, arg2))
+
+    # evaluate AST into TAC; returns the "place" (variable/temp) where result is
+    def eval_ir(self, node: S) -> str:
+        if isinstance(node, Expression):
+            # FIXED: Use correct attribute names left_exp and right_exp
+            left_place = self.eval_ir(node.left_exp)
+            right_place = self.eval_ir(node.right_exp)
+            op = node.op.operator.lexeme
+            
+            # if this is assignment (op == "="), then target is lhs, arg1 is right_place
+            if node.op.operator.token_type == TokenType.EQUAL:
+                # assume left is a literal node for variable
+                if not isinstance(node.left_exp, Literal):
+                    sys.exit("Left-hand side of assignment must be a variable")
+                var_name = node.left_exp.token.lexeme
+                # emit move: var_name = right_place
+                self.gen_tac(var_name, right_place, "=", None)
+                return var_name
+            else:
+                tmp = self.new_temp()
+                self.gen_tac(tmp, left_place, op, right_place)
+                return tmp
+        elif isinstance(node, Literal):
+            # just return the lexeme (identifier or literal number)
+            return str(node.token.lexeme)
+        else:
+            raise RuntimeError("Unknown AST node type")
+
+    # top-level: after parse, generate TAC and produce outputs
+    def generate(self):
+        if self.root is None:
+            sys.exit("No AST to generate from")
+        result_place = self.eval_ir(self.root)
+        # optionally we could emit something like "return result_place" or move to some final var
+        return result_place
+
+    def dump_tac(self):
+        print("=== Three-Address Code ===")
+        for tgt, a1, op, a2 in self.tac:
+            if a2 is None:
+                print(f"{tgt} = {a1}")
+            else:
+                print(f"{tgt} = {a1} {op} {a2}")
+
+    def to_assembly(self):
+        print("\n=== Pseudo-Assembly ===")
+        reg_map: dict[str,str] = {}
+        next_reg_num = 1
+        
+        def reg_for(place: str) -> str:
+            nonlocal next_reg_num
+            if place not in reg_map:
+                reg_map[place] = f"r{next_reg_num}"
+                next_reg_num += 1
+            return reg_map[place]
+        
+        def is_immediate(value: str) -> bool:
+            """Check if value is a numeric literal"""
+            try:
+                int(value)
+                return True
+            except ValueError:
+                return False
+
+        for tgt, a1, op, a2 in self.tac:
+            if a2 is None:
+                # op should be "=" in our scheme
+                if op == "=":
+                    rdst = reg_for(tgt)
+                    if is_immediate(a1):
+                        print(f"mov {rdst}, #{a1}    # {tgt} = {a1}")
+                    else:
+                        rsrc = reg_for(a1)
+                        print(f"mov {rdst}, {rsrc}    # {tgt} = {a1}")
+                else:
+                    # future: unary op
+                    rsrc = reg_for(a1)
+                    rdst = reg_for(tgt)
+                    print(f"{op} {rdst}, {rsrc}    # {tgt} = {op} {a1}")
+            else:
+                rdst = reg_for(tgt)
+                
+                # Handle immediates in binary operations
+                if is_immediate(a1):
+                    r1 = f"#{a1}"
+                else:
+                    r1 = reg_for(a1)
+                    
+                if is_immediate(a2):
+                    r2 = f"#{a2}"
+                else:
+                    r2 = reg_for(a2)
+                
+                # Map operator symbols to assembly mnemonics
+                op_map = {'+': 'add', '-': 'sub', '*': 'mul', '/': 'div'}
+                asm_op = op_map.get(op, op)
+                
+                print(f"{asm_op} {rdst}, {r1}, {r2}    # {tgt} = {a1} {op} {a2}")
