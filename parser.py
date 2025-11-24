@@ -30,7 +30,6 @@ class Literal:
 
     def __str__(self):
         return f"{self.token.lexeme}"
-    
 
 @dataclass
 class Expression:
@@ -45,13 +44,11 @@ class Expression:
         indent = "\t" * level
         child_indent = "\t" * (level + 1)
         
-        # Format left expression
         if isinstance(self.left_exp, Expression):
             left_str = f"{child_indent}LEFT EXPRESSION:\n{self.left_exp._format(level + 1)}"
         else:
             left_str = f"{child_indent}LEFT EXPRESSION: {self.left_exp}"
         
-        # Format right expression
         if isinstance(self.right_exp, Expression):
             right_str = f"{child_indent}RIGHT EXPRESSION:\n{self.right_exp._format(level + 1)}"
         else:
@@ -73,8 +70,8 @@ class Parser:
         self.lex = Lexer(line)
         self.tokens = self.lex.get_tokens()
         self.current = -1
-        self.temp_count = 0  # For generating temporary variables
-        self.tac = []  # FIXED: Initialize TAC list
+        self.temp_count = 0
+        self.tac = []
         
     def parse(self):
         self.lex.scan_tokens()
@@ -88,16 +85,14 @@ class Parser:
     def parse_exp(self, min_bp):
         lhs = self.next()
         
-        # FIXED: Handle parentheses correctly
         if lhs.token_type == TokenType.LEFTPARAM:
-            lhs = self.parse_exp(0.0)  # Capture the result
+            lhs = self.parse_exp(0.0)
             right_paren = self.next()
-            if right_paren.token_type != TokenType.RIGHTPARAM:  # Fixed comparison
+            if right_paren.token_type != TokenType.RIGHTPARAM:
                 sys.exit(f"Expected ')' on line {self.lex.get_line()}")
         elif lhs.prod_rule != ProdRule.LITERAL:
             sys.exit(f"Invalid literal on line ({self.lex.get_line()}): {lhs.lexeme}")
         else:
-            # FIXED: Wrap literal token in Literal node
             lhs = Literal(lhs)
 
         while True: 
@@ -112,7 +107,6 @@ class Parser:
             if left_bp < min_bp:
                 break
             op = self.next()
-            # FIXED: Wrap operator token in Operator node
             op = Operator(op)
             rhs = self.parse_exp(right_bp)
             lhs = Expression(lhs, op, rhs)
@@ -143,31 +137,24 @@ class Parser:
     def print_ast(self):
         print(self.root)
 
-    # FIXED: Added missing new_temp method
     def new_temp(self) -> str:
         tmp = f"t{self.temp_count}"
         self.temp_count += 1
         return tmp
 
-    # record a TAC instruction  
     def gen_tac(self, target: str, arg1: str, op: str, arg2: Optional[str]):
         self.tac.append((target, arg1, op, arg2))
 
-    # evaluate AST into TAC; returns the "place" (variable/temp) where result is
     def eval_ir(self, node: S) -> str:
         if isinstance(node, Expression):
-            # FIXED: Use correct attribute names left_exp and right_exp
             left_place = self.eval_ir(node.left_exp)
             right_place = self.eval_ir(node.right_exp)
             op = node.op.operator.lexeme
             
-            # if this is assignment (op == "="), then target is lhs, arg1 is right_place
             if node.op.operator.token_type == TokenType.EQUAL:
-                # assume left is a literal node for variable
                 if not isinstance(node.left_exp, Literal):
                     sys.exit("Left-hand side of assignment must be a variable")
                 var_name = node.left_exp.token.lexeme
-                # emit move: var_name = right_place
                 self.gen_tac(var_name, right_place, "=", None)
                 return var_name
             else:
@@ -175,17 +162,14 @@ class Parser:
                 self.gen_tac(tmp, left_place, op, right_place)
                 return tmp
         elif isinstance(node, Literal):
-            # just return the lexeme (identifier or literal number)
             return str(node.token.lexeme)
         else:
             raise RuntimeError("Unknown AST node type")
 
-    # top-level: after parse, generate TAC and produce outputs
     def generate(self):
         if self.root is None:
             sys.exit("No AST to generate from")
         result_place = self.eval_ir(self.root)
-        # optionally we could emit something like "return result_place" or move to some final var
         return result_place
 
     def dump_tac(self):
@@ -218,7 +202,6 @@ class Parser:
 
         for tgt, a1, op, a2 in self.tac:
             if a2 is None:
-                # op should be "=" in our scheme
                 if op == "=":
                     rdst = reg_for(tgt)
                     if is_immediate(a1):
@@ -227,14 +210,11 @@ class Parser:
                         rsrc = reg_for(a1)
                         print(f"mov {rdst}, {rsrc}    # {tgt} = {a1}")
                 else:
-                    # future: unary op
                     rsrc = reg_for(a1)
                     rdst = reg_for(tgt)
                     print(f"{op} {rdst}, {rsrc}    # {tgt} = {op} {a1}")
             else:
                 rdst = reg_for(tgt)
-                
-                # Handle immediates in binary operations
                 if is_immediate(a1):
                     r1 = f"#{a1}"
                 else:
@@ -245,7 +225,6 @@ class Parser:
                 else:
                     r2 = reg_for(a2)
                 
-                # Map operator symbols to assembly mnemonics
                 op_map = {'+': 'add', '-': 'sub', '*': 'mul', '/': 'div'}
                 asm_op = op_map.get(op, op)
                 
