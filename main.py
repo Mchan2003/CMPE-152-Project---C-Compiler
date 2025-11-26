@@ -14,7 +14,13 @@ def main():
 
         ast = Parser(command)
         ast.parse()
+        print("===== AST =====")
         ast.print_ast()
+
+        ast.generate()
+        ast.dump_tac()
+
+        ast.to_assembly()
 
 
 if __name__=="__main__":

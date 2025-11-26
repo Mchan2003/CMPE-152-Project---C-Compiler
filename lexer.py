@@ -13,6 +13,7 @@ class TokenType(Enum):
     RETURN = auto()
     CHAR = auto()
     VOID = auto()
+    MAIN = auto()
     #identifiers
     IDENTIFIER = auto()
     STRING = auto()
@@ -188,6 +189,7 @@ class Lexer:
             case "return" : return TokenType.RETURN
             case "char" : return TokenType.CHAR
             case "void" : return TokenType.VOID
+            case "main" : return TokenType.MAIN
             case _ : return TokenType.IDENTIFIER
 
     #print token

@@ -33,9 +33,9 @@ class Literal:
 
 @dataclass
 class Expression:
-    left_exp: S 
+    left_exp: E 
     op: Operator
-    right_exp: S
+    right_exp: E
     
     def __str__(self):
         return self._format(0)
@@ -61,12 +61,42 @@ class Expression:
             f"{right_str}\n"
             f"{indent}]"
         )
+    
 
-S = Union[Literal, Expression] 
+
+@dataclass
+class Declaration:
+    d_type: Token
+    exp: E
+
+    def __str__(self):
+        return self._format(0)
+    
+    def _format(self, level: int) -> str:
+        indent = "\t" * level
+        child_indent = "\t" * (level + 1)
+        
+        if isinstance(self.exp, Expression):
+            exp_str = f"{child_indent}EXPRESSION:\n{self.exp._format(level + 1)}"
+        else:
+            exp_str = f"{child_indent}EXPRESSION: {self.exp}"
+        
+        return (
+            f"{indent}DECLARATION:\n"
+            f"{indent}[\n"
+            f"{child_indent}TYPE: {self.d_type}\n"
+            f"{exp_str}\n"
+            f"{indent}]"
+        )
+
+
+
+E = Union[Literal, Expression] 
+data_type = {TokenType.INT, TokenType.FLOAT, TokenType.CHAR, TokenType.VOID}
 
 class Parser:
     def __init__(self, line):
-        self.root: Optional[S] = None
+        self.root: Optional[E] = None
         self.lex = Lexer(line)
         self.tokens = self.lex.get_tokens()
         self.current = -1
@@ -76,13 +106,24 @@ class Parser:
     def parse(self):
         self.lex.scan_tokens()
         self.lex.print_token()
-        self.root = self.parse_exp(0.0)
+        self.root = self.parse_declare()
 
         next_token = self.peek()
         if next_token.token_type != TokenType.EOF:
             sys.exit(f"Unexpected token on line {self.lex.get_line()}: {next_token.lexeme}")
+
+    def parse_declare(self) -> Declaration:
+        d_type = self.next()
+
+        if d_type.token_class != TokenClass.KEYWORD and d_type.token_type not in data_type:
+            sys.exit(f"Invalid data type for declaration on line ({self.lex.get_line()}): {d_type.lexeme}")
         
-    def parse_exp(self, min_bp):
+        exp = self.parse_exp(0.0)
+        
+        dec = Declaration(d_type, exp)
+        return dec
+        
+    def parse_exp(self, min_bp) -> Expression:
         lhs = self.next()
         
         if lhs.token_type == TokenType.LEFTPARAM:
@@ -145,7 +186,7 @@ class Parser:
     def gen_tac(self, target: str, arg1: str, op: str, arg2: Optional[str]):
         self.tac.append((target, arg1, op, arg2))
 
-    def eval_ir(self, node: S) -> str:
+    def eval_ir(self, node: E) -> str:
         if isinstance(node, Expression):
             left_place = self.eval_ir(node.left_exp)
             right_place = self.eval_ir(node.right_exp)
@@ -163,6 +204,9 @@ class Parser:
                 return tmp
         elif isinstance(node, Literal):
             return str(node.token.lexeme)
+        elif isinstance(node, Declaration):
+            exp = self.eval_ir(node.exp)
+            return exp
         else:
             raise RuntimeError("Unknown AST node type")
 
