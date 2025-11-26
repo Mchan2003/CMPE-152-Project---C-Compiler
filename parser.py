@@ -1,6 +1,6 @@
 from __future__ import annotations
 from dataclasses import dataclass
-from lexer import Token, TokenType, ProdRule, Lexer
+from lexer import Token, TokenType, TokenClass, Lexer
 from typing import Union, Optional
 import sys
 
@@ -75,7 +75,7 @@ class Parser:
         
     def parse(self):
         self.lex.scan_tokens()
-        # self.lex.print_token()
+        self.lex.print_token()
         self.root = self.parse_exp(0.0)
 
         next_token = self.peek()
@@ -90,7 +90,7 @@ class Parser:
             right_paren = self.next()
             if right_paren.token_type != TokenType.RIGHTPARAM:
                 sys.exit(f"Expected ')' on line {self.lex.get_line()}")
-        elif lhs.prod_rule != ProdRule.LITERAL:
+        elif lhs.token_class != TokenClass.LITERAL and lhs.token_class != TokenClass.IDENTIFIER:
             sys.exit(f"Invalid literal on line ({self.lex.get_line()}): {lhs.lexeme}")
         else:
             lhs = Literal(lhs)
@@ -101,7 +101,7 @@ class Parser:
                 break
             if op.token_type == TokenType.RIGHTPARAM:
                 break
-            if op.prod_rule != ProdRule.OPERATOR:
+            if op.token_class != TokenClass.OPERATOR:
                 sys.exit(f"Invalid operator on line ({self.lex.get_line()}): {op.lexeme}")
             left_bp, right_bp = self.binding_power(op)
             if left_bp < min_bp:
