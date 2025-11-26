@@ -16,6 +16,9 @@ def main():
         ast.parse()
         print("===== AST =====")
         ast.print_ast()
+        ast.generate()
+        ast.dump_tac()
+        ast.to_assembly()
 
         ast.generate()
         ast.dump_tac()

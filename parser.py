@@ -224,7 +224,7 @@ class Parser:
             else:
                 print(f"{tgt} = {a1} {op} {a2}")
 
-    def to_assembly(self):
+    def to_assembly(self):  
         print("\n=== Pseudo-Assembly ===")
         reg_map: dict[str,str] = {}
         next_reg_num = 1
