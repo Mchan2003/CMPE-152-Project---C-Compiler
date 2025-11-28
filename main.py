@@ -3,25 +3,32 @@ from parser import Parser
 import sys
 
 def main():
-    command = "";
-    while(command != "exit"):
-        command = input(">")
-        if(command == "exit"):
-            sys.exit(0);
-        # lex = Lexer(command);
-        # lex.scan_tokens();
-        # lex.print_token();
+    while True:
+            command = []
+            print("Enter code (Ctrl+Z when done):")
+            
+            try:
+                while True:
+                    line = input("> ")
+                    command.append(line)
+            except EOFError:
+                pass
+            
+            code = "\n".join(command)
+            
+            if not code.strip():  # Exit if empty input
+                print("Exiting...")
+                break
+            
+            ast = Parser(code)
+            ast.parse()
+            print("===== AST =====")
+            ast.print_ast()
 
-        ast = Parser(command)
-        ast.parse()
-        print("===== AST =====")
-        ast.print_ast()
-        ast.generate()
-        
-        ast.dump_tac()
-        ast.to_assembly()
+            ast.generate()
+            ast.dump_tac()
 
-        ast.to_assembly()
+            ast.to_assembly()
 
 
 if __name__=="__main__":

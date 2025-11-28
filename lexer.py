@@ -59,13 +59,14 @@ class TokenClass(Enum):
     EOF = auto()
 
 class Token:
-    def __init__(self, token_type, token_class, lexeme):
+    def __init__(self, token_type, token_class, lexeme, line):
         self.token_type = token_type
         self.token_class = token_class
         self.lexeme = lexeme
+        self.line = line
     
     def __str__(self):
-        return f"Token({self.token_type}, '{self.lexeme}')"
+        return f"Token({self.token_type}, {self.token_class}, '{self.lexeme}')"
 
 class Lexer:
     def __init__(self, source):
@@ -146,6 +147,8 @@ class Lexer:
                     self.add_token(TokenType.EQUAL, TokenClass.OPERATOR, lex)
             case ' ' : 
                 self.current += 1
+            case '\t' : 
+                self.current += 1
             case '\n' : 
                 self.current += 1
                 self.line += 1
@@ -173,7 +176,7 @@ class Lexer:
 
     #add_token
     def add_token(self, token_type, token_class, lexeme):
-        self.tokens.append(Token(token_type, token_class, lexeme))
+        self.tokens.append(Token(token_type, token_class, lexeme, self.line))
         self.current += 1;
 
     #handle identifier
