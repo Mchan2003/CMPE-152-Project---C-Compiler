@@ -4,18 +4,18 @@ from lexer import Token, TokenType, TokenClass, Lexer
 from typing import Union, Optional
 import sys
 
-@dataclass
-class TreeNode:
-    operand1:str
-    operator: str
-    operand2: str
+# @dataclass
+# class TreeNode:
+#     operand1:str
+#     operator: str
+#     operand2: str
 
-@dataclass
-class LeafNode:
-    operand:str
+# @dataclass
+# class LeafNode:
+#     operand:str
 
-    def __str__(self):
-        return f"{self.operand}"
+#     def __str__(self):
+#         return f"{self.operand}"
 
 @dataclass
 class Operator:
@@ -323,19 +323,19 @@ class Parser:
         delim = self.next()
 
         param = []
-        while 1:
-            param_dec = self.peek();
-            if param_dec.token_type == TokenType.RIGHTPARAM:
-                end = self.next();
-                break
-            
-            if param_dec.token_type == TokenType.EOF or param_dec.token_type == TokenType.LEFTBRACE:
-                sys.exit(f"Function parameter need to end with ) on line {param_dec.line}: Got {param_dec.lexeme}")
+        first_param = self.peek()
+        if first_param.token_type != TokenType.RIGHTPARAM:
+            param.append(self.parse_declare())
 
-            param_dec = self.parse_declare()
-            param.append(param_dec)
+            while self.peek().token_type == TokenType.COMMA:
+                self.next()  
+                param.append(self.parse_declare())
 
-        block = self.parse_statement_block();
+        if self.peek().token_type != TokenType.RIGHTPARAM:
+            sys.exit(f"Function parameter need to end with ) on line {self.peek().line}")
+        self.next()  
+
+        block = self.parse_statement_block()
 
         return Function(dec, param, block)
     
